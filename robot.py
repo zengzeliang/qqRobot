@@ -1,7 +1,6 @@
-import asyncio
 import json
 import os.path
-import threading
+import base64
 from typing import Dict, List
 
 import aiohttp
@@ -42,42 +41,6 @@ async def _message_handler(event, message: qqbot.Message):
             await send_weather_embed_direct_message_excep(weather_desc, message)
 
 async def get_weather(city_name: str) -> Dict:
-    """
-    获取天气信息
-    :return: 返回天气数据的json对象
-    返回示例
-    {
-    "success":"1",
-    "result":{
-        "weaid":"1",
-        "days":"2022-03-04",
-        "week":"星期五",
-        "cityno":"beijing",
-        "citynm":"北京",
-        "cityid":"101010100",
-        "temperature":"13℃/-1℃",
-        "temperature_curr":"10℃",
-        "humidity":"17%",
-        "aqi":"98",
-        "weather":"扬沙转晴",
-        "weather_curr":"扬沙",
-        "weather_icon":"http://api.k780.com/upload/weather/d/30.gif",
-        "weather_icon1":"",
-        "wind":"西北风",
-        "winp":"4级",
-        "temp_high":"13",
-        "temp_low":"-1",
-        "temp_curr":"10",
-        "humi_high":"0",
-        "humi_low":"0",
-        "weatid":"31",
-        "weatid1":"",
-        "windid":"7",
-        "winpid":"4",
-        "weather_iconid":"30"
-        }
-    }
-    """
     weather_api_url = "http://api.k780.com/?app=weather.today&cityNm=" + city_name + "&appkey=10003&sign=b59bc3ef6191eb9f747dd4e83c99f2a4&format=json"
     async with aiohttp.ClientSession() as session:
         async with session.get(
@@ -124,11 +87,17 @@ async def send_weather_embed_direct_message(weather_dict, guild_id, user_id):
     await dms_api.post_direct_message(direct_message_guild.guild_id, send)
     qqbot.logger.info("/私信推送天气内嵌消息 成功")
 
-
+def decrypt(enStr):
+    deStr = base64.b64decode(enStr).decode('utf-8')
+    return deStr
 
 # async的异步接口的使用示例
 if __name__ == "__main__":
-    t_token = qqbot.Token(test_config["token"]["appid"], test_config["token"]["token"])
+
+    appidSecr = test_config["token"]["appid"]
+    tokenSecr = test_config["token"]["token"]
+
+    t_token = qqbot.Token(decrypt(appidSecr), decrypt(tokenSecr))
     # @机器人后推送被动消息
     qqbot_handler = qqbot.Handler(
         qqbot.HandlerType.AT_MESSAGE_EVENT_HANDLER, _message_handler
