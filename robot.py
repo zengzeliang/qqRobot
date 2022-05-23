@@ -1,103 +1,35 @@
-import json
 import os.path
-import base64
-from typing import Dict, List
-
-import aiohttp
 import qqbot
 
 from qqbot.core.util.yaml_util import YamlUtil
-from qqbot.model.message import MessageEmbed, MessageEmbedField, MessageEmbedThumbnail, CreateDirectMessageRequest, \
-    MessageArk, MessageArkKv, MessageArkObj, MessageArkObjKv
+
+from service.publicWeatherFind import PublicWeatherFind
+from service.secretWeatherFind import SecretWeatherFind
+from util.encrypt import Encrypt
 
 test_config = YamlUtil.read(os.path.join(os.path.dirname(__file__), "config.yaml"))
 async def _message_handler(event, message: qqbot.Message):
-    """
-    定义事件回调的处理
-    :param event: 事件类型
-    :param message: 事件对象（如监听消息是Message对象）
-    """
-    msg_api = qqbot.AsyncMessageAPI(t_token, False)
     # 根据指令触发不同的推送消息
     content = message.content
+
     if "/天气" in content:
-        # 通过空格区分城市参数
-        split = content.split("/天气 ")
-        weather_dict = await get_weather(split[1])
-        if weather_dict['success'] == '1':
-            weather_desc = weather_dict['result']['citynm'] + " " + weather_dict['result']['weather'] + " " + weather_dict['result']['days'] + " " + weather_dict['result']['week']
-        elif weather_dict['success'] == '0':
-            weather_desc = '您查询的不是城市哦!'
-        message_to_send = qqbot.MessageSendRequest(msg_id=message.id, content=weather_desc)
-        await msg_api.post_message(message.channel_id, message_to_send)
+        service = PublicWeatherFind()
+        send_content = await service.getSendContent(content)
+        msg_api = qqbot.AsyncMessageAPI(t_token, False)
+        await service.sendMessage(message, msg_api, content=send_content)
     elif "/私信天气" in content:
-        # 通过空格区分城市参数
-        split = content.split("/私信天气 ")
-        weather_dict = await get_weather(split[1])
-        if weather_dict['success'] == '1':
-            await send_weather_embed_direct_message(weather_dict, message.guild_id, message.author.id)
-        elif weather_dict['success'] == '0':
-            weather_desc = '您查询的不是城市哦!'
-            await send_weather_embed_direct_message_excep(weather_desc, message)
+        service = SecretWeatherFind()
+        send_content = await service.getSendContent(content)
+        dms_api = qqbot.AsyncDmsAPI(t_token, False)
+        await service.sendMessage(message, dms_api, content=send_content)
 
-async def get_weather(city_name: str) -> Dict:
-    weather_api_url = "http://api.k780.com/?app=weather.today&cityNm=" + city_name + "&appkey=10003&sign=b59bc3ef6191eb9f747dd4e83c99f2a4&format=json"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-                url=weather_api_url,
-                timeout=5,
-        ) as resp:
-            content = await resp.text()
-            content_json_obj = json.loads(content)
-            return content_json_obj
-
-async def send_weather_embed_direct_message_excep(weather_desc, message:qqbot.Message):
-    dms_api = qqbot.AsyncDmsAPI(t_token, False)
-    message_to_send = qqbot.MessageSendRequest(msg_id=message.id, content=weather_desc)
-    direct_message_guild = await dms_api.create_direct_message(CreateDirectMessageRequest(message.guild_id, message.author.id))
-    await dms_api.post_direct_message(direct_message_guild.guild_id, message_to_send)
-
-
-async def send_weather_embed_direct_message(weather_dict, guild_id, user_id):
-    """
-    被动回复-私信推送天气内嵌消息
-    :param user_id: 用户ID
-    :param weather_dict: 天气数据字典
-    :param guild_id: 发送私信需要的源频道ID
-    """
-    # 构造消息发送请求数据对象
-    embed = MessageEmbed()
-    embed.title = weather_dict['result']['citynm'] + " " + weather_dict['result']['weather']
-    embed.prompt = "天气消息推送"
-    # 构造内嵌消息缩略图
-    thumbnail = MessageEmbedThumbnail()
-    thumbnail.url = weather_dict['result']['weather_icon']
-    embed.thumbnail = thumbnail
-    # 构造内嵌消息fields
-    embed.fields = [MessageEmbedField(name="当日温度区间：" + weather_dict['result']['temperature']),
-                    MessageEmbedField(name="当前温度：" + weather_dict['result']['temperature_curr']),
-                    MessageEmbedField(name="最高温度：" + weather_dict['result']['temp_high']),
-                    MessageEmbedField(name="最低温度：" + weather_dict['result']['temp_low']),
-                    MessageEmbedField(name="当前湿度：" + weather_dict['result']['humidity'])]
-
-    # 通过api发送回复消息
-    send = qqbot.MessageSendRequest(embed=embed, content="")
-    dms_api = qqbot.AsyncDmsAPI(t_token, False)
-    direct_message_guild = await dms_api.create_direct_message(CreateDirectMessageRequest(guild_id, user_id))
-    await dms_api.post_direct_message(direct_message_guild.guild_id, send)
-    qqbot.logger.info("/私信推送天气内嵌消息 成功")
-
-def decrypt(enStr):
-    deStr = base64.b64decode(enStr).decode('utf-8')
-    return deStr
 
 # async的异步接口的使用示例
 if __name__ == "__main__":
-
     appidSecr = test_config["token"]["appid"]
     tokenSecr = test_config["token"]["token"]
 
-    t_token = qqbot.Token(decrypt(appidSecr), decrypt(tokenSecr))
+    t_token = qqbot.Token(Encrypt.decrypt(appidSecr), Encrypt.decrypt(tokenSecr))
     # @机器人后推送被动消息
     qqbot_handler = qqbot.Handler(
         qqbot.HandlerType.AT_MESSAGE_EVENT_HANDLER, _message_handler
