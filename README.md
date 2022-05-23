@@ -16,7 +16,7 @@
 
 ### 使用说明
 
-1. 安装项目依赖
+1. 安装项目依赖（体验可以不安装，项目暂时在服务器上部署）
 
    ```python
    pip install qq-bot ，pip install pyyaml等模块运行项目
