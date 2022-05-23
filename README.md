@@ -12,7 +12,7 @@
 使用qqbot.Handler()监听AT_MESSAGE_EVENT_HANDLER事件，完成@指令解析回调函数。其中指令回调函数使用简单工厂方法设计模式，方便对后续指令扩展。另外机器人私发消息使用embed消息模板，可以使用现成的消息样式模板。
 
 系统整体流程图如图所示。
-![image](https://user-images.githubusercontent.com/84655677/169867598-e04a159a-987b-40f7-8010-7689b57e9e45.png)
+![image](https://user-images.githubusercontent.com/84655677/169867715-61da19ce-c57e-4a74-80a1-c6afd5903a85.png)
 
 ### 使用说明
 
